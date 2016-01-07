@@ -55,7 +55,7 @@ SCRATCH_PATH = '/glade/scratch/'+USER+'/'
 class p3d_run(object):
     """p3d_run object """
 
-    def __init__(self,runname=''): 
+    def __init__(self,runname='',param=None): 
         """ Initilazition Routine for the p3d_run object
 
         Fill in method discription
@@ -72,15 +72,23 @@ class p3d_run(object):
         11:21:19.671182
         """
         if len(runname) == 0: # Start init prompt
-            runname = raw_input('Please enter the runname (enter local to not save/load data): ') 
+            runname = raw_input("Please enter the runname (or 'help' for other options): ") 
+
+        if runname.lower() == 'help' :
+            print "\n 'local' or ''  : To use local parameters (i.e. enter every thing in now and it will be erased after)"
+            print " 'print' or 'p' : To print all of the stored runs names\n"
+            runname = raw_input("Please enter the runname: ")
+
+        if runname.lower() == 'print' or runname.lower() == 'p' :
+            self._print_runnames()
+            runname = raw_input("Please enter the runname: ")
 
         if runname.lower() == 'local' or runname == '':
             print 'No run info chosen, using local parameters.'
-            self._init_local()
+            self._init_local(param)
         else:
             print "Using run %s for the run.info run name."%runname
             self._init_file(runname)
-
 
     def _init_file(self,runname):
         """ Initilazition Routine for the p3d_run object that saves the runs information
@@ -115,9 +123,12 @@ class p3d_run(object):
             else:
                 print 'Not coded yet! talk to colby about this!'
 
-    def _init_local(self):
+    def _init_local(self,param=None):
         self.use_file=False
         self.run_info_dict={'run_name':'local'}
+        if param is not None:
+            self.load_param(param=param)
+
 
 
 ########################################################################################################################################################
@@ -125,6 +136,14 @@ class p3d_run(object):
 ########################################################################################################################################################
 #       Begin:                                   Creating and maintaining the run.info file                                                            #
 ########################################################################################################################################################
+
+    def _print_runnames(self):
+        print 'Printing all runnames:'
+        for cosa in os.listdir(P3DTHON_PATH+'p3dthon/run_info/'):
+            if cosa[0] != '.':
+                print '\t'+cosa[:cosa.rfind('.')]
+        print ''
+
 
     def load_info_file(self):
         """ Class Method: uses preset file name for run info file and gets all items
@@ -260,21 +279,28 @@ class p3d_run(object):
         else: return self.use_file
         
 
-    def _test_info_key(self,key,info_discription='',path_flag=False):
+    def _test_info_key(self,key,info_discription=None,path_flag=False,value=None):
         """ A Method that checks to seff a this peice of info is in the run.info file
             If the peice of info is not contained it addes its to the set
         """
+
         if key not in self.run_info_dict.keys():
-            print '### WARNING: Key %s not found in run.info file!' % key
-            print "    Would you like to add %s to run.infofile (y/''))?" % key,
-            get_raw = raw_input()
-            if get_raw.lower() != 'y':
-                print 'OK, no info added to run.info file! ABORTING METHOD CALL!!'
-                return -1
+            if value is not None:
+                if path_flag: self._add_info_keyval(key,os.path.abspath(value))
+                else: self._add_info_keyval(key,value)
             else:
-                print "What value do you want to add for the key %s? " % (key)
-                if len(info_discription) >0:
-                    print 'Info Discription: %s' % (info_discription)
+                print '### WARNING:  %s not found!' % key
+                # This is dumb whay ask if they want to add the thing they need?
+                #print "    Would you like to add %s to run.infofile (y/''))?" % key,
+                #get_raw = raw_input()
+                #if get_raw.lower() != 'y':
+                #    print 'OK, no info added to run.info file! ABORTING METHOD CALL!!'
+                #    return -1
+                #else:
+                if len(info_discription) is not None:
+                    print "Please enter %s: " % (info_discription)
+                else:
+                    print 'please enter %s: ' % (key)
                 get_raw = raw_input()
                 if path_flag: self._add_info_keyval(key,os.path.abspath(get_raw))
                 else: self._add_info_keyval(key,get_raw)
@@ -302,12 +328,15 @@ class p3d_run(object):
 #       Begin:                                   Loading raw run files (param, movie, or dump)                                                         #
 ########################################################################################################################################################
 
-    def load_param(self,change_flag=False,return_dict=False):
+    def load_param(self,param=None,change_flag=False,return_dict=False):
         """ Method to load in the param file for a given run
             It will try and then ask for where the file is. if it doent know
         """
 # load_param requires a path for the param file! a run_info_dict entry of 'param_path'
-        if self._test_info_key('param_path','Full path of param file for this run, included the files name',path_flag=True) == -1:
+        if self._test_info_key('param_path',\
+            'the param file',\
+            path_flag=True,value=param) == -1:
+
             print 'Necesarry Path for the Param File not Set!!! ABORTING!!!'
             return -1
         self.param_dict = {}
@@ -334,7 +363,11 @@ class p3d_run(object):
                     val = 'NO_ARG'
                 self.param_dict[key] = val
 
-    def load_movie(self,var='NOT_SET',time=-1,change_movie=False,movie_num=-1): #Colby add this, if there is any update to the p3d run reload the movie
+    def load_movie(self,
+                   var       ='NOT_SET',
+                   time      = None,
+                   movie_num = None): #Colby add this, if there is any update to the p3d run reload the movie
+
         """ Outer class wrapper for the inner class method load_movie
 
         Load movie files for a given set of varibles.
@@ -348,20 +381,22 @@ class p3d_run(object):
         :
         2014-08-07
         """
-        if (not hasattr(self,'movie') or change_movie == True or movie_num != -1):
-            self._reff_movie(movie_num=movie_num)
+        if (not hasattr(self,'movie') or (movie_num is not None)):
+            self._reff_movie(movie_num)
         return self.movie.load_movie(var,time)
 
 
 
-    def _reff_movie(self,movie_num=-1):
+    def _reff_movie(self,movie_num=None):
         import p3d_movie
 # load_param requires a path for the param file! a run_info_dict entry of 'param_path'
 
 # load_movie_log requires a path for the log file! a run_info_dict entry of 'movie_path'
 #
 #CoOLBY!!! make sure you pad movie num
-        if self._test_info_key('movie_path','Path of directory for movie files for this run',path_flag=True) == -1:
+        if self.run_info_dict['run_name'] == 'local': value = './'
+        else: value = None
+        if self._test_info_key('movie_path','Path of directory for movie files for this run',path_flag=True,value=value) == -1:
             print 'Necesarry Path for the Movie.log File not Set!!! ABORTING!!!'
             return -1    
         print self.run_info_dict['movie_path']
@@ -375,6 +410,25 @@ class p3d_run(object):
 
         self.movie = p3d_movie.p3d_movie(self.run_info_dict['movie_path'],self.param_dict,movie_num)
 
+    def vdist_2d(self,r0=[0.5,0.5],dx=[1.0,1.0],par=False,Bvec=False,pitch=False,OneD=False,dump_num=-1,change_dump=False,**kwargs): 
+        """ Outer class wrapper for the inner class method vdist_2d from the p3d_dump class
+
+        Generate the 2d distrobution function for a box at
+        a given location r0 of width dx
+
+
+        @return: @todo
+
+        Exemple  :
+
+        Creation
+        :
+        2015-04-20
+        """
+        if (not hasattr(self,'dump') or change_dump == True):
+            self._reff_dump(dump_num=dump_num)
+        return self.dump.vdist_2d(r0=r0,dx=dx,par=par,Bvec=Bvec,pitch=pitch,OneD=OneD,**kwargs) #Colby this seems very non-pythonic
+
     def _reff_dump(self,dump_num=-1):
         import p3d_dump
 # load_param requires a path for the param file! a run_info_dict entry of 'param_path'
@@ -383,8 +437,9 @@ class p3d_run(object):
 #
 #CoOLBY!!! make sure you pad movie num
 
-################################################################# foobar you stoped here
-        if self._test_info_key('dump_path','Full path of dump files for this run',path_flag=True) == -1:
+        if self.run_info_dict['run_name'] == 'local': value = './'
+        else: value = None
+        if self._test_info_key('dump_path','Full path of dump files for this run',path_flag=True,value=value) == -1:
             print 'Necesarry Path for the Param File not Set!!! ABORTING!!!'
             return -1
 
@@ -1209,76 +1264,76 @@ class p3d_run(object):
 
         return return_hist_dict
 
-#---------------------------------------------------------------------------------------------------------------
-#   Method      : vdist_2d
+##---------------------------------------------------------------------------------------------------------------
+##   Method      : vdist_2d
+##
+##   Discription : This method accepts a point and a width in simulation units (c/wpi) to define a box.
+##               : In that box we bin all of the particles to form the effective distrobution function
+##
+##   Args        : location [x,y] ( where you want the center of you box to be located at)
+##               : width [x,y] (the width of the box to bin particles 
+##               : dump_num (This spesifies the particular runs dump file 
+##
+##   Comments    : It would be pretty easy and potential usefull to allow this to wrap around the edges
+##               : so we can pick zero as a boundry and the code will know what todo.
+##---------------------------------------------------------------------------------------------------------------
+#    #def vdist_2d([location, width,dump_index]):
+#    def vdist_2d(self,r_simUnit=[76.8,76.8],x_width_simUnit=1.0,dump_num='000',bins=51,vflag=''):
+## First we handel the input
+#        x_simUnit = r_simUnit[0]
+#        y_simUnit = r_simUnit[0]
+#        if isinstance(x_width_simUnit,list): # Square box is assumed
+#            y_width_simUnit = x_width_simUnit[1]
+#            x_width_simUnit = x_width_simUnit[0]
+#        else:
+#            y_width_simUnit = x_width_simUnit
+#        if len(vflag) > 0 and vflag[0].lower() == 'v':
+#            verbose = 1
+#            vflag = vflag[1:]
+#        else: 
+#            verbose = 0
+#        if verbose:
+#            def verboseprint(*args):
+#                for arg in args:
+#                    print arg,
+#                print
+#        else:   
+#            verboseprint = lambda *a: None      # do-nothing
 #
-#   Discription : This method accepts a point and a width in simulation units (c/wpi) to define a box.
-#               : In that box we bin all of the particles to form the effective distrobution function
+## Calling get particles in box to make the vdist
+#        verboseprint('Reading Ions and Electrons from the Dump File')
+#        particles = self.get_part_in_box([r_simUnit,[x_width_simUnit,y_width_simUnit],dump_num,vflag])
 #
-#   Args        : location [x,y] ( where you want the center of you box to be located at)
-#               : width [x,y] (the width of the box to bin particles 
-#               : dump_num (This spesifies the particular runs dump file 
+## Here we are generating 3 histograms from the particles we read
+#        verboseprint('Generating Histograms')
+#        return_hist_dict = {}
+#        return_histxy = [0.,0.]
+#        extentxy = [[0.,0.,0.,0.],[0.,0.,0.,0.]]
+#        return_histxz = [0.,0.]
+#        extentxz = [[0.,0.,0.,0.],[0.,0.,0.,0.]]
+#        return_histyz = [0.,0.]
+#        extentyz = [[0.,0.,0.,0.],[0.,0.,0.,0.]]
 #
-#   Comments    : It would be pretty easy and potential usefull to allow this to wrap around the edges
-#               : so we can pick zero as a boundry and the code will know what todo.
-#---------------------------------------------------------------------------------------------------------------
-    #def vdist_2d([location, width,dump_index]):
-    def vdist_2d(self,r_simUnit=[76.8,76.8],x_width_simUnit=1.0,dump_num='000',bins=51,vflag=''):
-# First we handel the input
-        x_simUnit = r_simUnit[0]
-        y_simUnit = r_simUnit[0]
-        if isinstance(x_width_simUnit,list): # Square box is assumed
-            y_width_simUnit = x_width_simUnit[1]
-            x_width_simUnit = x_width_simUnit[0]
-        else:
-            y_width_simUnit = x_width_simUnit
-        if len(vflag) > 0 and vflag[0].lower() == 'v':
-            verbose = 1
-            vflag = vflag[1:]
-        else: 
-            verbose = 0
-        if verbose:
-            def verboseprint(*args):
-                for arg in args:
-                    print arg,
-                print
-        else:   
-            verboseprint = lambda *a: None      # do-nothing
-
-# Calling get particles in box to make the vdist
-        verboseprint('Reading Ions and Electrons from the Dump File')
-        particles = self.get_part_in_box([r_simUnit,[x_width_simUnit,y_width_simUnit],dump_num,vflag])
-
-# Here we are generating 3 histograms from the particles we read
-        verboseprint('Generating Histograms')
-        return_hist_dict = {}
-        return_histxy = [0.,0.]
-        extentxy = [[0.,0.,0.,0.],[0.,0.,0.,0.]]
-        return_histxz = [0.,0.]
-        extentxz = [[0.,0.,0.,0.],[0.,0.,0.,0.]]
-        return_histyz = [0.,0.]
-        extentyz = [[0.,0.,0.,0.],[0.,0.,0.,0.]]
-
-# the vx vs vy hist
-        return_histxy[0],xedge,yedge = np.histogram2d(particles[0]['vx'], particles[0]['vy'], bins=bins)
-        extentxy[0] = [xedge[0],xedge[-1],yedge[0],yedge[-1]]
-        return_histxy[1],xedge,yedge = np.histogram2d(particles[1]['vx'], particles[1]['vy'], bins=bins)
-        extentxy[1] = [xedge[0],xedge[-1],yedge[0],yedge[-1]]
-        return_hist_dict['vxy'] = [return_histxy,extentxy]
-# the vx vs vz hist
-        return_histxz[0],xedge,yedge = np.histogram2d(particles[0]['vx'], particles[0]['vz'], bins=bins)
-        extentxz[0] = [xedge[0],xedge[-1],yedge[0],yedge[-1]]
-        return_histxz[1],xedge,yedge = np.histogram2d(particles[1]['vx'], particles[1]['vz'], bins=bins)
-        extentxz[1] = [xedge[0],xedge[-1],yedge[0],yedge[-1]]
-        return_hist_dict['vxz'] = [return_histxz,extentxz]
-# the vy vs vz hist
-        return_histyz[0],xedge,yedge = np.histogram2d(particles[0]['vy'], particles[0]['vz'], bins=bins)
-        extentyz[0] = [xedge[0],xedge[-1],yedge[0],yedge[-1]]
-        return_histyz[1],xedge,yedge = np.histogram2d(particles[1]['vy'], particles[1]['vz'], bins=bins)
-        extentyz[1] = [xedge[0],xedge[-1],yedge[0],yedge[-1]]
-        return_hist_dict['vyz'] = [return_histyz,extentyz]
-
-        return return_hist_dict
+## the vx vs vy hist
+#        return_histxy[0],xedge,yedge = np.histogram2d(particles[0]['vx'], particles[0]['vy'], bins=bins)
+#        extentxy[0] = [xedge[0],xedge[-1],yedge[0],yedge[-1]]
+#        return_histxy[1],xedge,yedge = np.histogram2d(particles[1]['vx'], particles[1]['vy'], bins=bins)
+#        extentxy[1] = [xedge[0],xedge[-1],yedge[0],yedge[-1]]
+#        return_hist_dict['vxy'] = [return_histxy,extentxy]
+## the vx vs vz hist
+#        return_histxz[0],xedge,yedge = np.histogram2d(particles[0]['vx'], particles[0]['vz'], bins=bins)
+#        extentxz[0] = [xedge[0],xedge[-1],yedge[0],yedge[-1]]
+#        return_histxz[1],xedge,yedge = np.histogram2d(particles[1]['vx'], particles[1]['vz'], bins=bins)
+#        extentxz[1] = [xedge[0],xedge[-1],yedge[0],yedge[-1]]
+#        return_hist_dict['vxz'] = [return_histxz,extentxz]
+## the vy vs vz hist
+#        return_histyz[0],xedge,yedge = np.histogram2d(particles[0]['vy'], particles[0]['vz'], bins=bins)
+#        extentyz[0] = [xedge[0],xedge[-1],yedge[0],yedge[-1]]
+#        return_histyz[1],xedge,yedge = np.histogram2d(particles[1]['vy'], particles[1]['vz'], bins=bins)
+#        extentyz[1] = [xedge[0],xedge[-1],yedge[0],yedge[-1]]
+#        return_hist_dict['vyz'] = [return_histyz,extentyz]
+#
+#        return return_hist_dict
 
 #---------------------------------------------------------------------------------------------------------------
 #   Method      : vdist_2d_par
