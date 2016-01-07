@@ -33,7 +33,7 @@ class TPRun:
                  v0=[0.,0.,0.],
                  dv0=[0.1,0.1],
                  dt=.001,
-                 loading     = '',     #randu,randn,copy
+                 loading     = 'randu',     #randu,randn,copy
                  fieldinterp = False):
 
         """ constructor of the testparticle run object
@@ -110,18 +110,18 @@ class TPRun:
         if loading.lower() == 'randu':
             self.load_randu(r0,dr0,v0,dv0)
 
-        #c# elif loading.lower() == 'randn':
-        #c#     self.load_randn(r0,dr0,v0,dv0)
+        elif loading.lower() == 'randn':
+            self.load_randn(r0,dr0,v0,dv0)
 
-        #c# elif loading.lower() == 'user':
-        #c#     self._r0 = np.zeros((3,self._npart))
-        #c#     self._r0[0,:] = r0[0,:]
-        #c#     self._r0[1,:] = r0[1,:]
-        #c#     self._v0 = np.zeros((3,self._npart))
-        #c#     self._v0 = v0
+        elif loading.lower() == 'user':
+            self._r0 = np.zeros((3,self._npart))
+            self._r0[0,:] = r0[0,:]
+            self._r0[1,:] = r0[1,:]
+            self._v0 = np.zeros((3,self._npart))
+            self._v0 = v0
 
-        #c# else:
-        #c#     print 'Ptest : warning, no loading method specified'
+        else:
+            print 'Ptest : warning, no loading method specified'
 
 
         # position and velocity arrays
@@ -175,7 +175,7 @@ class TPRun:
             # smooth fields may help... B is fine, E is noisy !!
             for c in range(3):
                 self._E[c,:,:] = ndimage.gaussian_filter(self._E[c,:,:],
-                                                         sigma=6,
+                                                         sigma=0,
                                                          order=0)
 
             # checks which component is the out of plane

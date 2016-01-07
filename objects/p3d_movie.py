@@ -158,11 +158,17 @@ class p3d_movie(object):
             print "Restoring Varible '"+cosa+"' From File '"+fname+"'"
 
             if 'double_byte' in self.param_dict:
+# It seems that Marc Swisdak hates us and wants
+# to be unhappy because the byte data is unsigned
+# and the doulbe byte is signed so that is why
+# one has a uint and the other is just int
                 dat_type = 'int16'
                 norm_cst = 256**2-1
+                add_cst = 256**2/2
             else: #single byte precision
-                dat_type = 'int8'
+                dat_type = 'uint8'
                 norm_cst = 256-1
+                add_cst = 0
 
             print 'dat_type = ',dat_type
 
@@ -184,7 +190,9 @@ class p3d_movie(object):
             #print 'There are '+str(len(byte_movie)/arr_size[0]/arr_size[1])+ \
             #' movie files and you loaded number ' +str(movie_time+1)
 
-            return_dict[cosa] = byte_arr*(lmax[time]-lmin[time])*1.0/norm_cst + lmin[time]
+            return_dict[cosa] = (byte_arr + add_cst)* \
+                                (lmax[time] - lmin[time])* \
+                                1.0/norm_cst + lmin[time]
 
 
         #return real_arr_1.reshape(arr_size[1],arr_size[0])

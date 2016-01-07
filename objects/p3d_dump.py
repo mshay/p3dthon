@@ -296,9 +296,9 @@ class p3d_dump(object):
     def _vdist_2d_par(self,bins):
         print 'Calculating B field'
         
-        bx_interp = self.interp_field(self.dump_field_dict['bx'],self.param_dict['lx'],self.param_dict['ly'],self._r0[0],self._r0[1])
-        by_interp = self.interp_field(self.dump_field_dict['by'],self.param_dict['lx'],self.param_dict['ly'],self._r0[0],self._r0[1])
-        bz_interp = self.interp_field(self.dump_field_dict['bz'],self.param_dict['lx'],self.param_dict['ly'],self._r0[0],self._r0[1])
+        bx_interp = self.interp_field(self.dump_field_dict['bx'],self.param_dict['lx'],self.param_dict['ly'],self._r0) #I have to change this and I dont know why!!!!
+        by_interp = self.interp_field(self.dump_field_dict['by'],self.param_dict['lx'],self.param_dict['ly'],self._r0)
+        bz_interp = self.interp_field(self.dump_field_dict['bz'],self.param_dict['lx'],self.param_dict['ly'],self._r0)
         bmag_interp = (bx_interp**2+by_interp**2+bz_interp**2)**.5
 
         if by_interp > 0.:
@@ -459,6 +459,7 @@ class p3d_dump(object):
             #c#     new_tdd['e'] = temp_dump_dat['e'][len(temp_dump_dat['e'])/2:]
 
             #c# temp_dump_dat = new_tdd
+
 
 
 # We need to looop over Ions and Electrons
