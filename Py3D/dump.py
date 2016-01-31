@@ -13,7 +13,7 @@ import pdb
 import glob
 import struct
 import numpy as np
-from load_param import load_param
+from _methods import load_param
 
 class Dump(object):
     """ class that reads and stores dump file data
@@ -49,83 +49,6 @@ class Dump(object):
         else: 
             self.species = ['i','e']
     
-    def _location_to_proc(self, x0=0., y0=0., z0=0.):
-        """ Returns the px,py,pz processeor for a given values of x, y, and z
-        """
-
-        lx = self.param['lx']
-        ly = self.param['ly']
-        lz = self.param['lz']
-        
-        err_msg = '{0} value {1} is outside of the simulation boundry [0.,{2}].'+\
-                  'Setting {0} = {3}'
-
-        if x0 < 0.:
-            print err_msg.format('X',x0,lx,0.)
-            x0 = 0.
-        if x0 > lx:
-            print err_msg.format('X',x0,lx,lx)
-            x0 = lx 
-
-        if y0 < 0.:
-            print err_msg.format('Y',y0,ly,0.)
-            y0 = 0.
-        if y0 > ly:
-            print err_msg.format('Y',y0,ly,ly)
-            y0 = ly
-
-        if z0 < 0.:
-            print err_msg.format('Z',z0,lz,0.)
-            z0 = 0.
-        if z0 > lz:
-            print err_msg.format('Z',z0,lz,lz)
-            z0 = lz
-
-        px = int(np.floor(x0/self.param['lx']*self.param['pex'])) + 1
-        py = int(np.floor(y0/self.param['ly']*self.param['pey'])) + 1
-        pz = int(np.floor(z0/self.param['lz']*self.param['pez'])) + 1
-
-        return px,py,pz
-
-
-    def _proc_to_dumpindex(self, px=1, py=1, pz=1):
-        """ Returns the dump index (di), as well as the postion in the array 
-            returned in _get_particles(dump_index=di)
-
-        Big Note: There are two ways marc stores procs on dump files:
-                  an old way and a new way. We need a to distingush
-                  which way we are using.
-        Old Way:
-            Scan over Y, Scan over X then Scan over Z
-        New Way:
-            Scan over X, Scan over Y then Scan over Z
-        """
-        pex = self.param['pex']
-        pey = self.param['pey']
-        pez = self.param['pez']
-        nch = self.param['nchannels']
-
-        if pex*pey*pez%nch == 0:
-            npes_per_dump = pex*pey*pez/nch
-        else:
-            raise NotImplementedError()
-        
-        # Code for new way
-        pe = (pz - 1)*pex*pey + (py - 1)*pex + (px - 1)
-
-        N = pe/npes_per_dump + 1
-        R = pe%npes_per_dump
-
-        # Code for the old way
-        #if pz != 1:
-        #    raise NotImplementedError()
-
-        # I think Every Proc has all Y and Z, and only varys on x 
-        N = (px - 1)%nch + 1
-        R = (pz - 1)*(pex/nch)*(pey) + (pex/nch)*(py - 1) + (px - 1)/nch
-
-        return self._num_to_ext(N),R
-
 
     def _set_dump_path(self, path):
 
@@ -152,7 +75,7 @@ class Dump(object):
         choices = glob.glob(self.path+'/p3d-001.*')
         choices = [k[-3:] for k in choices]
 
-        num = self._num_to_ext(num)
+        num = _num_to_ext(num)
 
         if num not in choices:
             
@@ -160,7 +83,7 @@ class Dump(object):
                  '\n{0} '.format(choices)
             num = int(raw_input(_))
  
-        self.num = self._num_to_ext(num)
+        self.num = _num_to_ext(num)
 
         return None
 
@@ -169,7 +92,7 @@ class Dump(object):
         """ #   Method      : read_dump_file
         """
         
-        index = self._num_to_ext(index)
+        index = _num_to_ext(index)
         fname = self.path + '/p3d-{0}.{1}'.format(index,self.num)
 
         try:
@@ -265,7 +188,7 @@ class Dump(object):
             if ch + 1 > self.param['nchannels']:
                 break
 
-            files_with_fields.append(self._num_to_ext(ch+1))
+            files_with_fields.append(_num_to_ext(ch+1))
 
         return files_with_fields
 
@@ -365,13 +288,6 @@ class Dump(object):
                    np.concatenate(tags)
         else:
             return np.concatenate(parts)
-
-
-    def _num_to_ext(self,num):
-        if num is not None:
-            return '{0:03d}'.format(int(num))
-        else:
-            return None
 
 
     def _pop_int(self,F):

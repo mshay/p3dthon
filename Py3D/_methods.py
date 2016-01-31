@@ -61,3 +61,11 @@ def _convert(val):
             return c(val)
         except ValueError:
             pass
+
+
+    def _num_to_ext(num):
+        if num is not None:
+            return '{0:03d}'.format(int(num))
+        else:
+            return None
+
