@@ -5,11 +5,14 @@ import sys
 import os
 import time
 p3dthon_path = '/glade/u/home/colbyh/p3dthon/'
+sys.path.append(p3dthon_path+'Py3D/')
 sys.path.append(p3dthon_path+'objects/')
 sys.path.append(p3dthon_path+'objects/testparticles/')
 sys.path.append(p3dthon_path+'scripts/')
 from testparticle import TPRun
 from p3d_runs import p3d_run
-from  sub import *
+from dump import Dump
+from sub import *
+from patpyplot import make_pat_plot
 
 
