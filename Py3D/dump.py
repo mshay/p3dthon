@@ -15,6 +15,7 @@ import struct
 import numpy as np
 from _methods import load_param
 
+# Change foo.has_key(bar) to bar in foo 
 class Dump(object):
     """ class that reads and stores dump file data
         
@@ -42,7 +43,6 @@ class Dump(object):
         self.set_dump_num(num)
         self._set_part_dtype()
         self._want_tags = want_tags
-
         if self.param.has_key('mult_species'):
             self.is_mult_species = True
             raise NotImplementedError()
