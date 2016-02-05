@@ -22,24 +22,44 @@ class Movie(object):
         self.log        = self._load_log()
         self.ntimes     = len(self.log[self.movie_vars[0]])
 
-    def get_fields(self):
-        pass
 
-#    def load_movie(self,var='NOT_SET',time=None,local=False):
-#        """ A method to load a particular value for a given time
-#
-#        Load movie files for a given set of varibles.
-#        You can pass as a list, or a single string, or a keyword all
-#
-#        @return: @todo
-#
-#        Exemple  :
-#
-#        Creation
-#        :
-#        2014-06-16
-#        """
-#
+    def get_fields(self, time, *vars):
+        """ Loads the field(s) var at for a given time(s)
+
+            var can be:
+                a string field name
+                a lits of string field names
+                or simply 'all'
+        """
+
+        if 'all' in vars:
+            vars = tuple(self.movie_vars)
+
+        flds = {} 
+        for v in vars:
+            if v not in self.movie_vars:
+                err_msg = 'var {0} not found in posible field values.\n{1}'
+                err_msg = err_msg.format(v,self.movie_vars)
+                raise KeyError(err_msg)
+
+            flds[v] = self._read_movie(v,time)
+        
+        self._get_xy_vectors()
+
+    def _get_xy_vectors(self):
+        xyz_vecs = {}
+
+        dx = self.param['lx']/(self.param['pex']*self.param['nx'])
+        xyz_vecs['xx'] = np.arange(dx/2.,self.param['lx'],dx)
+
+        dy = self.param['ly']/(self.param['pey']*self.param['ny'])
+        xyz_vecs['yy'] = np.arange(dy/2.,self.param['ly'],dy)
+
+        if self.param['pez']*self.param['nz'] > 1:
+            dz = self.param['lz']/(self.param['pez']*self.param['nz'])
+            xyz_vecs['zz'] = np.arange(dz/2.,self.param['lz'],dz)
+
+        return xyz_vecs
 #        if type(var) is not list:
 #            if var.lower() == 'all': var_arr = self.movie_arr
 #            else: var_arr = [var]
@@ -82,12 +102,11 @@ class Movie(object):
     def _read_movie(self,var, time):
         
         # Insert Comment about werid movie shape
-        pt = self.ntimes
-        pz = self.param['pez']*self.param['nz'] 
-        py = self.param['pey']*self.param['ny'] 
-        px = self.param['pex']*self.param['nx'] 
+        movie_shape = (self.ntimes,
+                       self.param['pez']*self.param['nz'],
+                       self.param['pey']*self.param['ny'],
+                       self.param['pex']*self.param['nx'])
         
-        movie_shape = (pt,pz,py,px)
 
         fname = self.path+'/movie.'+var+'.'+self.num
         print "Loading {0}".format(fname)
@@ -97,46 +116,23 @@ class Movie(object):
         # why one has a uint and the other is just int
         if 'double_byte' in self.param:
             dat_type = np.dtype('int16')
-            norm_cst = 256**2-1
-            shft_cst = 1.0*256**2/2
+            norm = 256**2-1
+            shft = 1.0*256**2/2
         else: #single byte precision
             dat_type = np.dtype('uint8')
-            norm_cst = 256-1
-            shft_cst = 0.0
+            norm = 256-1
+            shft = 0.0
 
         t = 0 # This keeps track of where we are
         cmin = self.log[var][:,0][time]
         cmax = self.log[var][:,1][time]
 
-        fp = np.memmap(fname, dtype=dat_type, mode='r', shape=movie_shape)
+        mov = np.memmap(fname, dtype=dat_type, mode='r', shape=movie_shape)
 
-        fp = fp[time].copy()
-        
-#        pdb.set_trace()
-
-        return cmin,cmax,fp
-
-            
-#            with open(fname,'r') as F:
-#                for c,t in enumerate(time):
-#
-#                    F.seek((chose - _)*grid_pts*dat_type.itemsize, os.SEEK_SET)
-#                    byte_arr[i,:,:] = np.fromfile(f,
-#                                                  dtype=dat_type,
-#                                                  count=grid_pts
-#                                                  ).reshape(ney,nex)
-#
-#                    byte_arr[i,:,:] = (1.0*byte_arr[i,:,:] + shft_cst)* \
-#                                      (lmax[chose]-lmin[chose]) \
-#                                      /(1.0*norm_cst) + lmin[chose]
-#
-#                    _ = chose + 1
-#
-#            return_dict[cosa] = np.squeeze(byte_arr)
-#
-#        return_dict.update(zip(('xx','yy'), self.get_domain_arrays()))
-#        return return_dict
-
+        mov = mov[time].view(np.ndarray)
+        mov = (1.*mov.T + shft)*(cmax - cmin)/(1.0*norm) + cmin 
+        mov = np.squeeze(mov)
+        return mov
 
 
     def _load_log(self):
