@@ -63,9 +63,9 @@ def _convert(val):
             pass
 
 
-    def _num_to_ext(num):
-        if num is not None:
-            return '{0:03d}'.format(int(num))
-        else:
-            return None
+def _num_to_ext(num):
+    if num is not None:
+        return '{0:03d}'.format(int(num))
+    else:
+        return None
 

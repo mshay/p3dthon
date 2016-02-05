@@ -6,7 +6,6 @@
 #                                                                     #
 #                                                                     #
 #######################################################################
-
 import os
 import sys 
 import pdb
@@ -14,6 +13,7 @@ import glob
 import struct
 import numpy as np
 from _methods import load_param
+from _methods import _num_to_ext
 
 class Dump(object):
     """ class that reads and stores dump file data
