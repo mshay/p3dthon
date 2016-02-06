@@ -149,8 +149,9 @@ class Movie(object):
             raise Exception('Param/Moive Incompatibility')
 
         log = {}
+        num_of_vars = len(self.movie_vars)
         for c,k in enumerate(self.movie_vars):
-            log[k] = clims[c::30,:]
+            log[k] = clims[c::num_of_vars,:]
     
         return log
         # usefull use later

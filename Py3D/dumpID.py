@@ -12,20 +12,36 @@ import os
 import sys
 import pdb
 import numpy as np
+from dump import Dump
 from _methods import load_param
 from _methods import _num_to_ext
 
 class DumpID(object):
 
-    def __init__(self, param_file=None):
-        self.param = load_param(param_file)
+    def __init__(self, num=None, param_file=None, path=None):
+        self.dump = Dump(num, param_file, path)
+        self.param = self.dump.param
 
 
-    def get_part_in_box(self,r0,dx):
-        pass
+    def get_part_in_box(self,r=[1.,1.],dx=[.5,.5]):
+        r0  = [1., 1., .5]
+        dx0 = [.5, .5, 1.]
+
+        for c,(r_i,dx_i) in enumerate(zip(r,dx)):
+            r0[c]  = r_i
+            dx0[c] = dx_i
+
+        dump_and_index = self._get_procs_in_box(*(r0 + dx0))
+
+        parts = []
+        for d in dump_and_index:
+            data = self.dump.read_dump_file(d)
+            pdb.set_trace()
 
 
-    def _get_procs_in_box(self, x0, dx, y0, dy, z0=None, dz=None):
+        return procs
+
+    def _get_procs_in_box(self, x0, dx, y0, dy, z0, dz):
         """
         Takes the real r postion and returns what dump file
         partilces coresponding to that position will be on, as well as
@@ -37,23 +53,47 @@ class DumpID(object):
                             self.param['ly']/self.param['pey'],
                             self.param['lz']/self.param['pez']])
 
-        if z0 is None and dz is None:
-            z0 = self.param['lz']/2.
-            dz = self.param['lz']
-
         r0 = np.array([x0,y0,z0])
         dx = np.array([dx,dy,dz])
 
         procs_needed = [] # The corners of the cube 
         
         # find the lower left most proc
-        procs_needed.append(self._r0_to_proc(*(r0 - dx/2.))
-    
+        procs_needed.append(self._r0_to_proc(*(r0 - dx/2.)))
+         
+        r0_rng = []
         for c in range(3):
-            rng.append(np.arange(r0[c] - dx[c]/2., r0[c] + dx[c]/2., proc_dx[c]))
-            if rng[c][-1] < r0[c] + dx[c]/2.:
-                rng[c] = np.hstack((rng[c],r0[c] + dx[c]/2.))
+            r0_rng.append(np.arange(r0[c] - dx[c]/2., r0[c] + dx[c]/2., proc_dx[c]))
+            if r0_rng[c][-1] < r0[c] + dx[c]/2.:
+                r0_rng[c] = np.hstack((r0_rng[c],r0[c] + dx[c]/2.))
 
+        print r0_rng
+
+        p0_rng = []
+        for x in r0_rng[0]:
+            for y in r0_rng[1]:
+                for z in r0_rng[2]:
+                    p0_rng.append(self._r0_to_proc(x,y,z))
+
+        p0_rng = set(p0_rng) #This removes duplicates
+
+        di_dict = {}
+        for p in p0_rng:
+            d = self._proc_to_dumplocation(*p)
+            if d[0] in di_dict:
+                di_dict[d[0]].append(d[1])
+            else:
+                di_dict[d[0]] = [d[1]]
+
+        for k in di_dict:
+            di_dict[k].sort()
+            di_dict[k] = list(set(di_dict[k]))
+            print
+            print k, di_dict[k]
+
+        #print di_dict
+        
+        #pdb.set_trace()
 
         pass
 
@@ -71,33 +111,35 @@ class DumpID(object):
 
         if x0 < 0.:
             print err_msg.format('X',x0,lx,0.)
-            x0 = 0.
-        if x0 > lx:
+            px = 1
+        elif x0 >= lx:
             print err_msg.format('X',x0,lx,lx)
-            x0 = lx 
+            px = self.param['pex']
+        else:
+            px = int(np.floor(x0/self.param['lx']*self.param['pex'])) + 1
 
         if y0 < 0.:
             print err_msg.format('Y',y0,ly,0.)
-            y0 = 0.
-        if y0 > ly:
+            py = 1
+        elif y0 >= ly:
             print err_msg.format('Y',y0,ly,ly)
-            y0 = ly
+            py = self.param['pey']
+        else:
+            py = int(np.floor(y0/self.param['ly']*self.param['pey'])) + 1
 
         if z0 < 0.:
             print err_msg.format('Z',z0,lz,0.)
-            z0 = 0.
-        if z0 > lz:
+            pz = 1
+        elif z0 >= lz:
             print err_msg.format('Z',z0,lz,lz)
-            z0 = lz
-
-        px = int(np.floor(x0/self.param['lx']*self.param['pex'])) + 1
-        py = int(np.floor(y0/self.param['ly']*self.param['pey'])) + 1
-        pz = int(np.floor(z0/self.param['lz']*self.param['pez'])) + 1
+            pz = self.param['pez']
+        else:
+            pz = int(np.floor(z0/self.param['lz']*self.param['pez'])) + 1
 
         return px,py,pz
 
 
-    def _proc_to_dumplocation(self, px=1, py=1, pz=1):
+    def _proc_to_dumplocation(self, px, py, pz):
         """ Returns the dump index (di), as well as the postion in the array 
             returned in _get_particles(dump_index=di)
 
@@ -118,7 +160,7 @@ class DumpID(object):
         if pex*pey*pez%nch != 0:
             raise NotImplementedError()
 
-        dump_IO_version = 'V1'
+        dump_IO_version = 'V2'
 
         if self.param.has_key('USE_IO_V2'):
             dump_IO_version = 'V2'
@@ -132,11 +174,11 @@ class DumpID(object):
             npes_per_dump = pex*pey*pez/nch
 
             pe = (pz - 1)*pex*pey + (py - 1)*pex + (px - 1)
-
+            
             N = pe/npes_per_dump + 1
             R = pe%npes_per_dump
 
-        return num_to_ext(N),R
+        return _num_to_ext(N),R
 
 
 
