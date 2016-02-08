@@ -18,12 +18,20 @@ from _methods import _num_to_ext
 
 class DumpID(object):
 
-    def __init__(self, num=None, param_file=None, path=None):
+    def __init__(self, 
+                 num=None,
+                 param_file=None,
+                 path='./'):
+
         self.dump = Dump(num, param_file, path)
         self.param = self.dump.param
 
 
-    def get_part_in_box(self,r=[1.,1.],dx=[.5,.5]):
+    def get_part_in_box(self,
+                        r=[1.,1.],
+                        dx=[.5,.5],
+                        species=None):
+
         r0  = [1., 1., .5]
         dx0 = [.5, .5, 1.]
 
@@ -31,15 +39,36 @@ class DumpID(object):
             r0[c]  = r_i
             dx0[c] = dx_i
 
-        dump_and_index = self._get_procs_in_box(*(r0 + dx0))
+        dump_and_index = self._get_procs_in_box(r0[0],dx0[0],
+                                                r0[1],dx0[1],
+                                                r0[2],dx0[2])
 
-        parts = []
+        if species is None:
+            parts = {'i':[], 'e':[]}
+        else:
+            parts = {species:[]}
+
         for d in dump_and_index:
             data = self.dump.read_dump_file(d)
+            try:
+                data = data[1]
+            except KeyError:
+                pass
+            for sp in parts:
+                parts[sp] += [data[sp][g] for g in dump_and_index[d]]
             pdb.set_trace()
+        
+        for sp in parts:
+            for c,p in enumerate(parts[sp]):
+                parts[sp][c] = self._trim_parts(p, r0, dx0)
+                
+
+        return parts
 
 
-        return procs
+    def _trim_parts(p, r0, dx0):
+        pass
+
 
     def _get_procs_in_box(self, x0, dx, y0, dy, z0, dz):
         """
@@ -63,7 +92,10 @@ class DumpID(object):
          
         r0_rng = []
         for c in range(3):
-            r0_rng.append(np.arange(r0[c] - dx[c]/2., r0[c] + dx[c]/2., proc_dx[c]))
+            r0_rng.append(np.arange(r0[c] - dx[c]/2., 
+                                    r0[c] + dx[c]/2.,
+                                    proc_dx[c]))
+
             if r0_rng[c][-1] < r0[c] + dx[c]/2.:
                 r0_rng[c] = np.hstack((r0_rng[c],r0[c] + dx[c]/2.))
 
@@ -88,14 +120,9 @@ class DumpID(object):
         for k in di_dict:
             di_dict[k].sort()
             di_dict[k] = list(set(di_dict[k]))
-            print
-            print k, di_dict[k]
+            #print k, di_dict[k]
 
-        #print di_dict
-        
-        #pdb.set_trace()
-
-        pass
+        return di_dict
 
 
     def _r0_to_proc(self, x0, y0, z0):
