@@ -17,6 +17,13 @@ from _methods import load_param
 from _methods import _num_to_ext
 
 class DumpID(object):
+    """
+        Write better doc strings!
+
+        TODO:   Make a get fields call
+                Debug for differnet simulations
+                
+    """
 
     def __init__(self, 
                  num=None,
@@ -56,18 +63,30 @@ class DumpID(object):
                 pass
             for sp in parts:
                 parts[sp] += [data[sp][g] for g in dump_and_index[d]]
-            pdb.set_trace()
         
         for sp in parts:
             for c,p in enumerate(parts[sp]):
                 parts[sp][c] = self._trim_parts(p, r0, dx0)
+
+            parts[sp] = np.hstack(parts[sp])
+
+        if len(parts.keys()) == 1:
+            parts = parts[parts.keys()[0]]
+        return parts
                 
 
-        return parts
+    def _trim_parts(self, p0, r0, dx0):
 
+        if self.param['pez']*self.param['nz'] == 1:
+            vrng = ['x','y']
+        else:
+            vrng = ['x','y','z']
+        
+        for c,v in enumerate(vrng):
+            to_mask = np.where((r0[c] - dx0[c]/2. <= p0[v]) & \
+                               (p0[v] <= r0[c] + dx0[c]/2.))
 
-    def _trim_parts(p, r0, dx0):
-        pass
+        return p0
 
 
     def _get_procs_in_box(self, x0, dx, y0, dy, z0, dz):
