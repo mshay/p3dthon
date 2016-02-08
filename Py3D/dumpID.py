@@ -37,6 +37,7 @@ class DumpID(object):
     def get_part_in_box(self,
                         r=[1.,1.],
                         dx=[.5,.5],
+                        par=False,
                         species=None):
 
         r0  = [1., 1., .5]
@@ -69,11 +70,47 @@ class DumpID(object):
                 parts[sp][c] = self._trim_parts(p, r0, dx0)
 
             parts[sp] = np.hstack(parts[sp])
+            if par:
+                parts[sp] = self._rotate_parts(parts[sp], r0, dx0)
+
 
         if len(parts.keys()) == 1:
             parts = parts[parts.keys()[0]]
+
         return parts
                 
+    def _rotate_parts(self, p0, r0, dx0):
+        b0,e0 = self._interp_field(r0, dx0)
+
+        exb = np.cross(b0,e0)
+        exb = exb/np.sqrt(np.sum(exb**2))
+
+        bbb = b0/np.sqrt(np.sum(b0**2))
+
+        beb = cross(bbb,exb)
+        
+        ntype = p0.dtype.descr[3][1] #This is the type of vx
+
+        extra_dt = np.dtype([('v0', ntype),
+                             ('v1', ntype),
+                             ('v2', ntype)])
+
+        new_dt = np.dtype(p0.dtype.descr + extra_dt)
+
+        p1 = np.zeros(p0.shape,dtype=new_dt)
+
+        for v in ['x', 'y', 'z', 'vx', 'vy', 'vz']:
+            p1[v] = p0[v]
+       
+        for v,ehat in zip(('v0','v1','v2'),(bbb,exb,beb)):
+            p1[v] = ehat[0]*p0['vx'] + ehat[1]*p0['vy'] + ehat[2]*p0['vz']
+
+        return p1
+
+
+    def _interp_field(self, r0, dx0):
+        raise NotImplementedError()
+
 
     def _trim_parts(self, p0, r0, dx0):
 
