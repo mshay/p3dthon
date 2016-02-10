@@ -9,6 +9,7 @@
 import os
 import sys 
 import pdb
+import time
 import glob
 import struct
 import numpy as np
@@ -25,7 +26,6 @@ class Dump(object):
               write code for box to procs to load
      Maybies:
               optimize _pop_particles with  seek to location?
-              seperate the dump reader with code convert location to dumps to read
 
 
     """
@@ -50,6 +50,65 @@ class Dump(object):
             self.species = ['i','e']
     
 
+    def set_dump_num(self,num):
+
+        choices = glob.glob(self.path+'/p3d-001.*')
+        choices = [k[-3:] for k in choices]
+
+        num = _num_to_ext(num)
+
+        if num not in choices:
+            
+            _ =  'Select from the following possible moive numbers:' \
+                 '\n{0} '.format(choices)
+            num = int(raw_input(_))
+ 
+        self.num = _num_to_ext(num)
+
+        return None
+
+ 
+    def read_particles(self,index,sub_proc=None):
+        """ #   Method      : read_dump_parts
+        """
+        
+        index = _num_to_ext(index)
+
+        F = self._open_dump_file(index)
+
+        self._read_header(F)
+        
+        if index in self._dump_files_with_fields():
+            flds = self._pop_fields(F)
+
+        parts = self._pop_particles(F)
+
+        if F.read():
+            print 'ERROR: The entire dump file was not read.\n'\
+                  '       Returning what was read.'
+        F.close()
+
+        return parts
+
+
+    def read_fields(self):
+
+        flds = []
+
+        for index in self._dump_files_with_fields():
+            F = self._open_dump_file(index)
+            self._read_header(F)
+            flds += [self._pop_fields(F)]
+            F.close()
+
+        fields = flds[0]
+        for f in flds[1:]:
+            for k in fields:
+                fields[k] = np.concatenate((fields[k],f[k]),axis=2)
+
+        return fields
+
+
     def _set_dump_path(self, path):
 
         attempt_tol = 5
@@ -70,29 +129,8 @@ class Dump(object):
         return None
 
 
-    def set_dump_num(self,num):
+    def _open_dump_file(self,index):
 
-        choices = glob.glob(self.path+'/p3d-001.*')
-        choices = [k[-3:] for k in choices]
-
-        num = _num_to_ext(num)
-
-        if num not in choices:
-            
-            _ =  'Select from the following possible moive numbers:' \
-                 '\n{0} '.format(choices)
-            num = int(raw_input(_))
- 
-        self.num = _num_to_ext(num)
-
-        return None
-
- 
-    def read_dump_file(self,index=None):
-        """ #   Method      : read_dump_file
-        """
-        
-        index = _num_to_ext(index)
         fname = self.path + '/p3d-{0}.{1}'.format(index,self.num)
 
         try:
@@ -101,20 +139,7 @@ class Dump(object):
             print "I/O error({0}): {1}".format(e.errno, e.strerror)
             print "ERROR: Could not open file. " + fname
 
-        self._read_header(F)
-        
-        if index in self._dump_files_with_fields():
-            flds = self._pop_fields(F)
-
-        parts = self._pop_particles(F)
-
-        if F.read():
-            print 'ERROR: The entire dump file was not read.\n'\
-                  '       Returning what was read.'
-        if 'flds' in locals():
-            return flds,parts
-        else:
-            return parts
+        return F
 
 
     def _set_part_dtype(self):
@@ -220,9 +245,17 @@ class Dump(object):
             self._pop_int(F)
 
 # How many times do we call this?
+            t0 = time.time()
             for n in range(N):
 
                 pes[sp].append( self._pop_parts_off_grid(F) )
+                #pes[sp].append( self._skip_parts(F) )
+
+                #if n%2 == 1:
+                #    pes[sp].append( self._pop_parts_off_grid(F) )
+                #else:
+                #    pes[sp].append( self._skip_parts(F) )
+
                 
                 # Debuging code that says whwere we are physicaly
                 #if sp == 'i':
@@ -231,12 +264,11 @@ class Dump(object):
                 #           pes[sp][n]['z'].min(),pes[sp][n]['z'].max()]
 
                 #    print '[%2.3f, %2.3f, %2.3f, %2.3f, %2.3f, %2.3f]'%tuple(lpe)
-
+            print time.time() - t0
+            pdb.set_trace()
         return pes
 
-
-    def _pop_parts_off_grid(self,F):
-
+    def _skip_parts(self,F):
 
         pad = self._pop_int(F)
         num_parts = self._pop_int(F)
@@ -245,7 +277,32 @@ class Dump(object):
         n_bufs = int(np.floor(1.*num_parts/self.bufsize))
         num_parts_last_buf = num_parts - self.bufsize*n_bufs
 
-        #pdb.set_trace()
+        if num_parts_last_buf > 0:
+            n_bufs += 1
+        else:
+            # Special case: the number of parts is evenly divisalbe by 
+            # bufsize. so we will return the entire last buffer
+            num_parts_last_buf = self.bufsize
+
+        # Explination of skip size:
+        #   x,y,z,vx,vy,vz *prk* particles on a buffer 
+        #   tagsize (8)* particles on a buffer
+        #   pre and post pad for the parts and tags
+        skip_size = 6*self.param['prk']*self.bufsize +\
+                    8*self.bufsize +\
+                    4*4 
+        F.seek(n_bufs*skip_size,1)
+
+        return None
+
+    def _pop_parts_off_grid(self,F):
+
+        pad = self._pop_int(F)
+        num_parts = self._pop_int(F)
+        self._pop_int(F)
+
+        n_bufs = int(np.floor(1.*num_parts/self.bufsize))
+        num_parts_last_buf = num_parts - self.bufsize*n_bufs
 
         if num_parts_last_buf > 0:
             n_bufs += 1
@@ -347,9 +404,9 @@ class Dump(object):
         print 'N = {0}, R = {1}'.format(N,R)
 
         try:
-            foo = self.read_dump_file(N)[1]['i'][R]
+            foo = self.read_particles(N)[1]['i'][R]
         except KeyError:
-            foo = self.read_dump_file(N)['i'][R]
+            foo = self.read_particles(N)['i'][R]
 
         lpe = [foo['x'].min(),foo['x'].max(),
                foo['y'].min(),foo['y'].max(),

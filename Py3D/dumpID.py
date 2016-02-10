@@ -14,14 +14,14 @@ import pdb
 import numpy as np
 from dump import Dump
 from _methods import load_param
+from _methods import interp_field
 from _methods import _num_to_ext
 
 class DumpID(object):
     """
         Write better doc strings!
 
-        TODO:   Make a get fields call
-                Debug for differnet simulations
+        TODO:  Debug for differnet simulations
                 
     """
 
@@ -47,17 +47,22 @@ class DumpID(object):
             r0[c]  = r_i
             dx0[c] = dx_i
 
-        dump_and_index = self._get_procs_in_box(r0[0],dx0[0],
-                                                r0[1],dx0[1],
-                                                r0[2],dx0[2])
-
         if species is None:
             parts = {'i':[], 'e':[]}
         else:
             parts = {species:[]}
 
+        if par:
+            print 'Reading Fields...'
+            self.fields = self.dump.read_fields()
+
+        dump_and_index = self._get_procs_in_box(r0[0],dx0[0],
+                                                r0[1],dx0[1],
+                                                r0[2],dx0[2])
+
         for d in dump_and_index:
-            data = self.dump.read_dump_file(d)
+            print 'Reading Parts from {0}...'.format(d)
+            data = self.dump.read_particles(d)
             try:
                 data = data[1]
             except KeyError:
@@ -67,33 +72,34 @@ class DumpID(object):
         
         for sp in parts:
             for c,p in enumerate(parts[sp]):
+                print '  Triming parts from {0}...'.format(c)
                 parts[sp][c] = self._trim_parts(p, r0, dx0)
 
             parts[sp] = np.hstack(parts[sp])
             if par:
                 parts[sp] = self._rotate_parts(parts[sp], r0, dx0)
 
-
         if len(parts.keys()) == 1:
             parts = parts[parts.keys()[0]]
 
         return parts
+
                 
     def _rotate_parts(self, p0, r0, dx0):
-        b0,e0 = self._interp_field(r0, dx0)
+        b0,e0 = self._interp_fields(r0)
 
         exb = np.cross(b0,e0)
         exb = exb/np.sqrt(np.sum(exb**2))
 
         bbb = b0/np.sqrt(np.sum(b0**2))
 
-        beb = cross(bbb,exb)
+        beb = np.cross(bbb,exb)
         
         ntype = p0.dtype.descr[3][1] #This is the type of vx
 
-        extra_dt = np.dtype([('v0', ntype),
-                             ('v1', ntype),
-                             ('v2', ntype)])
+        extra_dt = [('v0', ntype),
+                    ('v1', ntype),
+                    ('v2', ntype)]
 
         new_dt = np.dtype(p0.dtype.descr + extra_dt)
 
@@ -108,13 +114,34 @@ class DumpID(object):
         return p1
 
 
-    def _interp_field(self, r0, dx0):
-        raise NotImplementedError()
+    def _interp_fields(self, r0):
+
+        if self._is_2D():
+            sim_lens = [self.param['l'+v] for v in ['x','y']]
+            r0 = r0[:2]
+
+        else:
+            sim_lens = [self.param['l'+v] for v in ['x','y','z']]
+            r0 = r0[:3]
+
+
+        b0 = np.empty(3)
+        e0 = np.empty(3)
+
+        for g,fld in enumerate(['bx','by','bz']):
+            b0[g] = interp_field(self.fields[fld],r0,sim_lens)
+
+        for g,fld in enumerate(['ex','ey','ez']):
+            e0[g] = interp_field(self.fields[fld],r0,sim_lens)
+
+        return b0,e0
+        #bx_intp = interp_field()
+        #raise NotImplementedError()
 
 
     def _trim_parts(self, p0, r0, dx0):
 
-        if self.param['pez']*self.param['nz'] == 1:
+        if self._is_2D:
             vrng = ['x','y']
         else:
             vrng = ['x','y','z']
@@ -122,8 +149,15 @@ class DumpID(object):
         for c,v in enumerate(vrng):
             to_mask = np.where((r0[c] - dx0[c]/2. <= p0[v]) & \
                                (p0[v] <= r0[c] + dx0[c]/2.))
+            p0 = p0[to_mask]
 
         return p0
+
+    def _is_2D(self):
+        if self.param['pez']*self.param['nz'] == 1:
+            return True
+        else:
+            return False 
 
 
     def _get_procs_in_box(self, x0, dx, y0, dy, z0, dz):
@@ -243,16 +277,18 @@ class DumpID(object):
         if pex*pey*pez%nch != 0:
             raise NotImplementedError()
 
-        dump_IO_version = 'V2'
+        dump_IO_version = 'V1'
 
         if self.param.has_key('USE_IO_V2'):
             dump_IO_version = 'V2'
        
         if dump_IO_version == 'V1':
+            print 'Using IO V1...'
             N = (px - 1)%nch + 1
             R = (pz - 1)*(pex/nch)*(pey) + (pex/nch)*(py - 1) + (px - 1)/nch
 
         else: # dump_IO_version == 'V2'
+            print 'Using IO V2...'
 
             npes_per_dump = pex*pey*pez/nch
 

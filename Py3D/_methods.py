@@ -1,4 +1,5 @@
 import os
+import numpy as np
 
 def load_param(param_file=None):
     """ Method to load in the param file for a given run
@@ -68,3 +69,42 @@ def _num_to_ext(num):
         return '{0:03d}'.format(int(num))
     else:
         return None
+
+###### This should be in a differnt class
+
+def interp_field(fld, r0, sim_lens):
+    r0 = np.array(r0)
+    sim_lens = np.array(sim_lens)
+    nl = np.array(np.shape(fld))
+    
+    dl = 1.0*sim_lens/nl
+
+    lp = np.floor((r0 - dl/2.)/sim_lens*nl).astype(int)
+    
+    lp1 = (lp + 1)%nl
+
+    wl = (r0 - (lp + .5)*dl)/dl
+
+    for w in wl:
+        if w < 0.:
+            print 'C'*80
+            print 'Negetive interp weight'
+            print 'C'*80
+
+    if len(np.shape(fld)) == 2:
+        return (1.-wl[0])*(1.-wl[1])*fld[lp[0],  lp[1] ]+\
+               (wl[0])   *(1.-wl[1])*fld[lp[0],  lp1[1]]+\
+               (1.-wl[0])*   (wl[1])*fld[lp1[0], lp[1] ]+\
+               (wl[0])   *   (wl[1])*fld[lp1[0], lp1[1]]
+
+    elif len(np.shape(fld)) == 3:
+        return (1.-wl[0])*(1.-wl[1])*(1.-wl[2])*fld[lp[0],  lp[1],  lp[2] ]+\
+               (wl[0])   *(1.-wl[1])*(1.-wl[2])*fld[lp[0],  lp1[1], lp[2] ]+\
+               (1.-wl[0])*   (wl[1])*(1.-wl[2])*fld[lp1[0], lp[1],  lp[2] ]+\
+               (wl[0])   *   (wl[1])*(1.-wl[2])*fld[lp1[0], lp1[1], lp[2] ]+\
+               (1.-wl[0])*(1.-wl[1])*   (wl[2])*fld[lp[0],  lp[1],  lp1[2]]+\
+               (wl[0])   *(1.-wl[1])*   (wl[2])*fld[lp[0],  lp1[1], lp1[2]]+\
+               (1.-wl[0])*   (wl[1])*   (wl[2])*fld[lp1[0], lp[1],  lp1[2]]+\
+               (wl[0])   *   (wl[1])*   (wl[2])*fld[lp1[0], lp1[1], lp1[2]]
+    else:
+        raise Exception("Field shape not understood")
