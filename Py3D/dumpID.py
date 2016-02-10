@@ -39,6 +39,9 @@ class DumpID(object):
                         dx=[.5,.5],
                         par=False,
                         species=None):
+        """ Takes a box defined by its center position r and it's
+            widths dx and gets the particle data
+        """
 
         r0  = [1., 1., .5]
         dx0 = [.5, .5, 1.]
@@ -61,18 +64,15 @@ class DumpID(object):
                                                 r0[2],dx0[2])
 
         for d in dump_and_index:
-            print 'Reading Parts from {0}...'.format(d)
-            data = self.dump.read_particles(d)
-            try:
-                data = data[1]
-            except KeyError:
-                pass
+            print 'Reading Parts from p3d-{0}.{1}...'.format(d,self.dump.num)
+            data = self.dump.read_particles(d,wanted_procs=dump_and_index[d])
+
             for sp in parts:
                 parts[sp] += [data[sp][g] for g in dump_and_index[d]]
         
         for sp in parts:
             for c,p in enumerate(parts[sp]):
-                print '  Triming parts from {0}...'.format(c)
+                print '  Triming {0} from {1}...'.format(sp,c)
                 parts[sp][c] = self._trim_parts(p, r0, dx0)
 
             parts[sp] = np.hstack(parts[sp])

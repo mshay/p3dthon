@@ -68,7 +68,7 @@ class Dump(object):
         return None
 
  
-    def read_particles(self,index,sub_proc=None):
+    def read_particles(self,index,wanted_procs=None):
         """ #   Method      : read_dump_parts
         """
         
@@ -81,7 +81,7 @@ class Dump(object):
         if index in self._dump_files_with_fields():
             flds = self._pop_fields(F)
 
-        parts = self._pop_particles(F)
+        parts = self._pop_particles(F,wanted_procs)
 
         if F.read():
             print 'ERROR: The entire dump file was not read.\n'\
@@ -218,23 +218,24 @@ class Dump(object):
         return files_with_fields
 
 
-    def _pop_particles(self,F,N=None):
+    def _pop_particles(self, F, wanted_procs=None):
         """ Read the particles from a given dump file F
             and return them.
 
-            N : The number of grid points on this dump file
+            N : is the list of procs your want to read from the dump file
 
             returns pes : a dictonary of species, each species has a list
                           whose elemts are the particles on a given proc
         """
-        if N is None:
-            if self.param['pex']*self.param['pey']*\
-                self.param['pez']%self.nchannels != 0:
-                raise NotImplementedError()
+        if self.param['pex']*self.param['pey']*\
+            self.param['pez']%self.nchannels != 0:
+            raise NotImplementedError()
 
-            else:
-                N = self.param['pex']*self.param['pey']*\
-                    self.param['pez']/self.nchannels
+        nprocs = self.param['pex']*self.param['pey']*\
+                 self.param['pez']/self.nchannels
+                 
+        if wanted_procs is None:
+            wanted_procs = range(nprocs)
 
         pes = {} 
         for sp in self.species: 
@@ -245,17 +246,12 @@ class Dump(object):
             self._pop_int(F)
 
 # How many times do we call this?
-            t0 = time.time()
-            for n in range(N):
+            for n in range(nprocs):
 
-                pes[sp].append( self._pop_parts_off_grid(F) )
-                #pes[sp].append( self._skip_parts(F) )
-
-                #if n%2 == 1:
-                #    pes[sp].append( self._pop_parts_off_grid(F) )
-                #else:
-                #    pes[sp].append( self._skip_parts(F) )
-
+                if n in wanted_procs:
+                    pes[sp].append( self._pop_parts_off_grid(F) )
+                else:
+                    pes[sp].append( self._skip_parts(F) )
                 
                 # Debuging code that says whwere we are physicaly
                 #if sp == 'i':
@@ -264,8 +260,6 @@ class Dump(object):
                 #           pes[sp][n]['z'].min(),pes[sp][n]['z'].max()]
 
                 #    print '[%2.3f, %2.3f, %2.3f, %2.3f, %2.3f, %2.3f]'%tuple(lpe)
-            print time.time() - t0
-            pdb.set_trace()
         return pes
 
     def _skip_parts(self,F):
