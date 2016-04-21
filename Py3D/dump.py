@@ -33,8 +33,7 @@ class Dump(object):
     def __init__(self, 
                  num=None,
                  param_file=None,
-                 path='./',
-                 want_tags=False): 
+                 path='./'): 
         """ Initilazition Routine for dump class 
         """
 
@@ -42,7 +41,7 @@ class Dump(object):
         self.param = load_param(param_file)
         self.set_dump_num(num)
         self._set_part_dtype()
-        self._want_tags = want_tags
+        self._tags = False
         if self.param.has_key('mult_species'):
             self.is_mult_species = True
             raise NotImplementedError()
@@ -68,10 +67,15 @@ class Dump(object):
         return None
 
  
-    def read_particles(self,index,wanted_procs=None):
+    def read_particles(self,index,wanted_procs=None,tags=False):
         """ #   Method      : read_dump_parts
         """
         
+        if tags:
+            self._tags = True
+        else:
+            self._tags = False
+
         index = _num_to_ext(index)
 
         F = self._open_dump_file(index)
@@ -245,7 +249,6 @@ class Dump(object):
             n_pes = struct.unpack('<i',F.read(4))[0] 
             self._pop_int(F)
 
-# How many times do we call this?
             for n in range(nprocs):
 
                 if n in wanted_procs:
@@ -306,7 +309,7 @@ class Dump(object):
             num_parts_last_buf = self.bufsize
 
         parts = []
-        if self._want_tags: tags = []
+        if self._tags: tags = []
 
         for c in range(n_bufs):
 
@@ -323,7 +326,7 @@ class Dump(object):
 
             # Now we need to take care of the tags (if they are there)
             pad = self._pop_int(F)
-            if self._want_tags:
+            if self._tags:
                 tags.append(np.fromfile(F, dtype='int64', 
                                         count=parts_on_buf))
             else:
@@ -333,7 +336,7 @@ class Dump(object):
         
         parts[-1] = parts[-1][:num_parts_last_buf]
 
-        if self._want_tags: 
+        if self._tags: 
             tags[-1] = tags[-1][:num_parts_last_buf]
             return np.concatenate(parts), \
                    np.concatenate(tags)

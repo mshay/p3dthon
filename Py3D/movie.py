@@ -44,7 +44,12 @@ class Movie(object):
 
             flds[v] = self._read_movie(v,time)
         
-        self._get_xy_vectors()
+        
+        xyz_vecs = self._get_xy_vectors()
+        for k in xyz_vecs:
+            flds[k] = xyz_vecs[k]
+
+        return flds
 
     def _get_xy_vectors(self):
         xyz_vecs = {}
@@ -233,6 +238,20 @@ class Movie(object):
                     'jix','jiy','jiz',
                     'pixx','piyy','pizz','pixy','piyz','pixz']
 
+        elif self.param['movie_header'] == '"movie3dHeat.h"':
+            return ['rho',
+                    'jx','jy','jz',
+                    'bx','by','bz',
+                    'ex','ey','ez',
+                    'ne',
+                    'jex','jey','jez',
+                    'pexx','peyy','pezz','pexy', 'peyz', 'pexz',
+                    'ni',
+                    'pixx','piyy','pizz','pixy', 'piyz', 'pixz',
+                    'epar1','epar2','epar3',
+                    'eperp1','eperp2','eperp3',
+                    'vpar1','vpar2','vpar3']
+
         elif self.param['movie_header'] == '"movie_pic3.0.h"':
             return ['rho',
                     'jx','jy','jz',
@@ -244,6 +263,7 @@ class Movie(object):
                     'ni',
                     'jix','jiy','jiz',
                     'pixx','piyy','pizz','pixy','piyz','pixz']
+ 
         else:
             err_msg = '='*80 + \
                       '\t This particular moive headder has not been coded!\n'\

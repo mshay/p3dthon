@@ -38,7 +38,8 @@ class DumpID(object):
                         r=[1.,1.],
                         dx=[.5,.5],
                         par=False,
-                        species=None):
+                        species=None,
+                        tags=False):
         """ Takes a box defined by its center position r and it's
             widths dx and gets the particle data
         """
@@ -65,11 +66,15 @@ class DumpID(object):
 
         for d in dump_and_index:
             print 'Reading Parts from p3d-{0}.{1}...'.format(d,self.dump.num)
-            data = self.dump.read_particles(d,wanted_procs=dump_and_index[d])
+            data = self.dump.read_particles(d,wanted_procs=dump_and_index[d],
+                                            tags=tags)
 
             for sp in parts:
                 parts[sp] += [data[sp][g] for g in dump_and_index[d]]
-        
+
+        if tags:
+            parts = self._combine_parts_and_tags(parts)
+
         for sp in parts:
             for c,p in enumerate(parts[sp]):
                 print '  Triming {0} from {1}...'.format(sp,c)
@@ -84,7 +89,32 @@ class DumpID(object):
 
         return parts
 
-                
+
+    def _combine_parts_and_tags(self,parts):
+        """ Merge the particle tags and phase space values
+            
+            There is a small chance that this may be slow!
+            So maybe come back and try to fix it? if it needs it
+        """
+        bind_parts = {}
+        for sp in parts:
+            part_dtype = parts[sp][0][0].dtype.descr
+            tag_dtype = [('tag',parts[sp][0][1].dtype)]
+            new_dtype = np.dtype(part_dtype + tag_dtype)
+
+            bind_parts[sp] = []
+            for g, (phase_space, tags) in enumerate(parts[sp]): 
+                pts = np.empty(np.size(phase_space), dtype = new_dtype)
+                for fld in pts.dtype.fields:
+                    if fld == 'tag':
+                        pts[fld] = tags
+                    else:
+                        pts[fld] = phase_space[fld]
+
+                bind_parts[sp].append(pts)
+
+        return bind_parts
+
     def _rotate_parts(self, p0, r0, dx0):
         b0,e0 = self._interp_fields(r0)
 
