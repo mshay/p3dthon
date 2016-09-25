@@ -14,8 +14,12 @@ class Movie(object):
                  path='./'):
         """ Initlize a movie object
         """
-
+        print path
+        print param
+        self._name_sty  = '/movie.{0}.{1}'
         self.path       = self._get_movie_path(path)
+        if param is not None: param = self.path + '/' + param
+        print param
         self.param      = load_param(param)
         self.num        = self._get_movie_num(num)
         self.movie_vars = self._get_movie_vars()
@@ -23,12 +27,12 @@ class Movie(object):
         self.ntimes     = len(self.log[self.movie_vars[0]])
 
 
-    def get_fields(self, time, *vars):
+    def get_fields(self, time=None, *vars):
         """ Loads the field(s) var at for a given time(s)
 
             var can be:
                 a string field name
-                a lits of string field names
+                a sequence of string field names
                 or simply 'all'
         """
 
@@ -113,7 +117,7 @@ class Movie(object):
                        self.param['pex']*self.param['nx'])
         
 
-        fname = self.path+'/movie.'+var+'.'+self.num
+        fname = self.path + self._name_sty.format(var,self.num)
         print "Loading {0}".format(fname)
 
         # It seems that Marc Swisdak hates us and wants to be unhappy because 
@@ -145,7 +149,7 @@ class Movie(object):
             It creates a dictoary 
         """
 
-        fname = self.path+'/movie.log.'+self.num
+        fname = self.path + self._name_sty.format('log', self.num)
 
         print "Loading {0}".format(fname)
         clims = np.loadtxt(fname)
@@ -168,11 +172,12 @@ class Movie(object):
 #   in the array each element coresponds to a diffrent time slice
 #   so      movie.movie_log_dict['bz'] = [
 
+
     def _get_movie_path(self,path):
 
         attempt_tol = 5
         path = os.path.abspath(path)
-        choices = glob.glob(path+'/movie.log.*')
+        choices = glob.glob(path + self._name_sty.format('log', '*'))
 
         c = 0
         while not choices and c < attempt_tol:
@@ -187,7 +192,7 @@ class Movie(object):
 
     def _get_movie_num(self,num):
 
-        choices = glob.glob(self.path+'/movie.log.*')
+        choices = glob.glob(self.path + self._name_sty.format('log', '*'))
         choices = [k[-3:] for k in choices]
 
         num = _num_to_ext(num)
@@ -304,3 +309,38 @@ class Movie(object):
 #c#        dx = lx/nx
 #c#        dy = ly/ny
 #c#        return (np.arange(dx/2.,lx,dx),np.arange(dy/2.,ly,dy))
+
+
+class UnfinishedMovie(Movie):
+    """Class to load p3d movie data"""
+
+    def __init__(self, param=None):
+        """ Initlize a movie object
+        """
+        self._name_sty  = '/{0}'
+        self.path       = './'
+        self.param      = load_param(param)
+        self.num        = '999'
+        self.movie_vars = self._get_movie_vars()
+        self.log        = self._load_log()
+        self.ntimes     = len(self.log[self.movie_vars[0]])
+
+
+def load_movie(vars=None, time=None, movie_num=None):
+    param = glob.glob('./param*')
+
+    M = Movie(param=param, num=movie_num)
+
+    if time is None:
+        get_time_msg = 'There are {0} times in movie number {1}. \n' +\
+                       'Please enter the time: '
+
+        get_time_msg = get_time_msg.format(M.ntimes, M.num)
+
+        time = -1 
+        attempt_tol = 5
+        ctr = 0
+        while time not in range(M.ntimes) and ctr < attempt_tol:
+            time = raw_input(get_time_msg)
+            ctr =+ 1
+    #return 

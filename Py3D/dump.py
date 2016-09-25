@@ -280,6 +280,7 @@ class Dump(object):
             # Special case: the number of parts is evenly divisalbe by 
             # bufsize. so we will return the entire last buffer
             num_parts_last_buf = self.bufsize
+            print 'It is pretty unlikly that we will be here!'
 
         # Explination of skip size:
         #   x,y,z,vx,vy,vz *prk* particles on a buffer 

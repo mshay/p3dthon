@@ -171,7 +171,7 @@ class DumpID(object):
 
     def _trim_parts(self, p0, r0, dx0):
 
-        if self._is_2D:
+        if self._is_2D():
             vrng = ['x','y']
         else:
             vrng = ['x','y','z']
@@ -274,14 +274,17 @@ class DumpID(object):
         else:
             py = int(np.floor(y0/self.param['ly']*self.param['pey'])) + 1
 
-        if z0 < 0.:
-            print err_msg.format('Z',z0,lz,0.)
+        if self._is_2D():
             pz = 1
-        elif z0 >= lz:
-            print err_msg.format('Z',z0,lz,lz)
-            pz = self.param['pez']
         else:
-            pz = int(np.floor(z0/self.param['lz']*self.param['pez'])) + 1
+            if z0 < 0.:
+                print err_msg.format('Z',z0,lz,0.)
+                pz = 1
+            elif z0 >= lz:
+                print err_msg.format('Z',z0,lz,lz)
+                pz = self.param['pez']
+            else:
+                pz = int(np.floor(z0/self.param['lz']*self.param['pez'])) + 1
 
         return px,py,pz
 
